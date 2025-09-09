@@ -188,6 +188,7 @@ Jobs cannot request memory < 745 GB and submit to the teramem queue.
 ### Label and parameter conflicts with examples:
 
 If a parameter is not specified in `resource_tweak.config` for a process, the value will be inherited from `nextflow.config` as the next default, and then from the process-level defaults if not specified there. 
+Note that the pipeline's `nextflow.config` may be importing other config files, for instance the [PaM Informatics common config](nextflow.config)
 
 ### Process script conflicts: 
 
@@ -255,7 +256,7 @@ process {
     }
 }
 ```
-**Result:** Even though `queue = long` has been supplied, because `time ` parameter has not been specified, the default label `'time_queue_from_normal'` from the `nextflow-commons.config`will be applied. This label overrides the queue setting, and the job will be submitted to the normal queue. Refer to *Section 8 "Understanding nextflow-commons labels"*, for details.
+**Result:** Maximum task job runtime remains 12h. Why? Even though `queue = long` has been specified in the `resource_tweak.config` file, the `time ` parameter has not been modified there, and takes its value from the default process label `'time_queue_from_normal'`, which is interpreted as per the `nextflow-commons.config`. Applying this label overrides the queue setting, and the job will be submitted to the normal queue, and accordingly sets the task paramter `time` value to 12 . Refer to *Section 8 "Understanding nextflow-commons labels"*, for more details.
 
 ### **Example 4:** Changing memory resource escalation strategy
 
@@ -272,6 +273,7 @@ process {
 Ensure to add the folowing functions copied from the `nextflow-commons.config` to the `resource_tweak config`: 
 1) `def check_max { ... }`
 2) `def escalate_exp { ... }`
+3) `def escalate_linear { ... }`
 
 **Result:** The memory resource requested for the task job will start at 64 GB on the first attempt.
 On each retry (default 2 retries), the memory will then double (64 → 128 → 256 GB, etc.) depending on the multiplier (in this case 2) .
@@ -353,7 +355,7 @@ Labels in Nextflow provide a central mechanism to define and manage resources fo
 - If the task exceeds the maximum runtime, the `time` and `queue` task parameter values are updated during retries:
 `12.h` time and `normal` queue → `48.h` time and `long` queue → `7 d` time and `week` queue → `30 d` and `basement` queue
 
-Note: Even if you manually supply a queue, this label can override it during escalation so be careful.
+Note: Even if you manually supply a `queue` parameter value, it will be overridden by this label when the task is retried, so please be careful. You should thus always provide an overriding value of the `queue` parameter together with the `time` parameter, or - but it's not recommended - by redefining the effect of the `time_queue_from_normal` lebel in your add-on config file.
 
 
 **Tips:** 
