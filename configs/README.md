@@ -177,7 +177,7 @@ process {
 
 ## 5. Resource conflicts:
 
-When configuring resources for use on WSI "farm" HPC, allocations must comply with ISG farm rules to avoid job submission errors. Always ensure you are up to date with the [ISG farm documentation](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101360547/Farm+documentation), as normal LSF job submission rules apply.
+When configuring resources for use on WSI "farm" HPC, allocations must comply with ISG farm rules to avoid job submission errors. Always ensure you are up to date with the [ISG documentation on the farm queues](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101361122/What+are+the+different+queues+for), as normal LSF job submission rules apply.
 
 ### Memory and queue conflicts:
 
@@ -245,7 +245,7 @@ process {
 ```
 **Result:** `cpu` task parameter value remain as set from the process label (`cpu_8` → 8 CPUs).`memory`, `queue`, and `time` task parameter values are overridden.
 
-**Example 3:** Partial override with label fallback
+### **Example 3:** Partial override with label fallback
 
 ```bash
 process {
@@ -285,7 +285,7 @@ Resource maximums by default are:
 * `max_cpus = 256`
 * `max_time = 720.h`
 
-Always request resources sensibly according to [ISG farm documentation](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101360547/Farm+documentation), and if in doubt please raise a ticket with PaM Info or ISG.
+Always request resources sensibly according to ISG farm documentation [here](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101360547/Farm+documentation) and [there for more details on what queue to use](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101361122/What+are+the+different+queues+for), and if in doubt please raise a ticket with PaM Info or ISG.
 
 For detailed memory limits and runtime restrictions by queue, use:
 ```bash
