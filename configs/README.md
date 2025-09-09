@@ -353,9 +353,9 @@ Labels in Nextflow provide a central mechanism to define and manage resources fo
 ```
 - Resolves to `12 hours` maximum task job runtime initially.
 - If the task exceeds the maximum runtime, the `time` and `queue` task parameter values are updated during retries:
-`12.h` time and `normal` queue → `48.h` time and `long` queue → `7 d` time and `week` queue → `30 d` and `basement` queue
+`12.h` time and `normal` queue → `48.h` time and `long` queue → `7.d` time and `week` queue → `30.d` and `basement` queue
 
-Note: Even if you manually supply a `queue` parameter value, it will be overridden by this label when the task is retried, so please be careful. You should thus always provide an overriding value of the `queue` parameter together with the `time` parameter, or - but it's not recommended - by redefining the effect of the `time_queue_from_normal` lebel in your add-on config file.
+Note: Even if you manually supply a `queue` parameter value, it will be overridden by this label when the task is retried, so please be careful. You should thus always provide an overriding value of the `queue` parameter together with the `time` parameter. You may also - but it's not recommended - redefine the effect of the `time_queue_from_normal` label in your add-on config file to avoid this conflict arising for the target process, but beware of spillover effects on other processes that would share this label.
 
 
 **Tips:** 
