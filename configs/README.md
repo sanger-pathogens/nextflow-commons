@@ -15,11 +15,11 @@ wget https://raw.githubusercontent.com/sanger-pathogens/nextflow-commons/refs/he
 
 ## 2. Identify processes for each pipeline
 
-Each Nextflow pipeline is built from processes (tasks). To customise resources, you first need to know which processes are used in your pipeline. There are two ways to find them:
+Each Nextflow pipeline is built from processes, which are applied to each input data item (task). To customise resources, you first need to know which processes are used in your pipeline. There are two ways to find them:
 
 ### Using our gitlab repositories: 
 
-1) Go to the relevant GitLab repository for your pipeline. ([pathogen pipelines gitlab page](https://gitlab.internal.sanger.ac.uk/sanger-pathogens/pipelines))
+1) Go to the relevant git repository for your pipeline. ([PaM Informatics pipelines page on WSI private Gitlab](https://gitlab.internal.sanger.ac.uk/sanger-pathogens/pipelines) or [public Github page](https://github.com/sanger-pathogens))
 2) Open the `main.nf` file 
 3) Look at the `IMPORT MODULES/SUBWORKFLOWS` section. This lists all modules and subworkflows that are imported.
 
@@ -55,7 +55,7 @@ Each Nextflow pipeline is built from processes (tasks). To customise resources, 
     ```
 
 4) Navigate to the imported files (e.g. `./modules/metawrap.nf`) to find where the processes are defined.
-    * Modules contain process definitions directly.
+    * Modules contain process definitions.
     * Subworkflows may import additional modules, so follow those paths as needed.
 
     In the example above, the processes `ASSEMBLY`, `BINNING`, `BIN_REFINEMENT`, and `REASSEMBLE_BINS` are defined inside modules/metawrap.nf
@@ -76,13 +76,14 @@ METAWRAP_QC:GET_HOST_READS
 ...
 ```
 
-This will print a list of processes in the format `SUBWORKFLOW_NAME_1:....SUBWORKFLOW_NAME_N:PROCESS_NAME`.Here, `METAWRAP_QC:TRIMGALORE` means that the `TRIMGALORE` process is called inside the `METAWRAP_QC` subworkflow
+This will print a list of processes in the format `SUBWORKFLOW_NAME_1:....SUBWORKFLOW_NAME_N:PROCESS_NAME`. Here, `METAWRAP_QC:TRIMGALORE` means that the `TRIMGALORE` process is called inside the `METAWRAP_QC` subworkflow
 
 ## 3. Identify the default resource settings for the processes of interest
 
-Each process in a Nextflow pipeline has default resource settings. These control how many CPUs, how much memory, which queue, and how long the job can run. You may see these resources defined in different ways depending on the pipeline.
+Each process in a Nextflow pipeline has default resource settings. These control how many CPUs, how much memory the task will be allowed to use, which queue the task job is submitted to (if executing pipeline on an HPC), and how long the submitted job can run. You may see these resources defined in different ways depending on the pipeline.   
+Note that some resource specification are related or even redundant. For instance, specifying the HPC queue may constrain the maximum time a job can run, regardless of the max timespcified in the config; e.g. on WSI "farm" HPC, jobs submitted to the `normal` queue can't run longer than 12h.```
 
-In all examples we will submit `ASSEMBLY` to the `normal` queue requesting `32GB` of memory and having a maximum time of `8 hours` to run.
+In all examples below the pipeline will submit `ASSEMBLY` task jobs to the `normal` queue requesting `32GB` of memory and having a maximum time of `8 hours` to run.
 
 1. Directly inside the process:
 
@@ -98,7 +99,7 @@ process ASSEMBLY {
 ```
 2. Using labels from nextflow-commons:
 
-Many pipelines use labels instead of hard-coding resources within the process block. These labels map to definitions in the [nextflow-commons.config](https://github.com/sanger-pathogens/nextflow-commons/blob/master/configs/nextflow.config) (see *section 8 "Understanding nextflow-commons labels"* for examples of label resolution)
+Many pipelines use labels instead of hard-coding resources within the process block. These labels map to definitions in the [nextflow-commons.config](nextflow.config) (see *section 8 "Understanding nextflow-commons labels"* for examples of label resolution)
 ```bash
 
 process ASSEMBLY {
@@ -112,7 +113,7 @@ process ASSEMBLY {
 
 ```bash
 process { 
-    withName ASSEMBLY {
+    withName: ASSEMBLY {
             cpus = 8
             memory = 32GB
             queue = normal 
@@ -122,37 +123,38 @@ process {
 ```
 
 **Tip:** When checking defaults:
-1. Look in the process definition (`.nf` file)
-2. Check if labels are used, and trace them back to the [nextflow-commons.config](https://github.com/sanger-pathogens/nextflow-commons/blob/master/configs/nextflow.config)
+1. Look in the process definition (`.nf` module file)
+2. Check if labels are used, and trace them back to the [nextflow-commons.config](nextflow.config)
 3. Check `nextflow.config` in the main pipeline repository
 
 
 ## 4. Priority:
 
-Nextflow applies resource settings according to priority, with the highest-priority value taking effect if the same parameter is defined in multiple places. This allows you to override resource parameters. 
+Nextflow applies configuration i.e. set parameter values, including those pertaining to resource settings, according to the configuration source priority, with the highest-priority parameter value taking effect if the same parameter is defined in multiple places. This allows you to override default resource parameter settings. 
 
 ### Priorities low -> high:
 
 1) Process definition (`.nf` file)
 2) nextflow.config in the pipeline repository
-3) Custom config passed with `-c` (e.g. resource_tweak.config) – highest priority and applied last.
+3) Custom config passed with `-c` (e.g. resource_tweak.config)
+4) parameters defined through the command-line interface (with `--` options) – highest priority and applied last
 
 ## 5. How to override the resource requirements for your process of interest:
 
-1) Edit the resource_tweak.config file by adding a process block with the exact name of the process as defined in the .nf file 
+1) Edit the `resource_tweak.config` file by adding a process block with the exact name of the process as defined in the `.nf` file 
 2) Specify the resource parameters you want to override.
 
 Example:
 
 ```bash
 process { 
-    withName PROCESS_NAME {
+    withName: PROCESS_NAME {
         cpus = 8
         memory = 32GB
         queue = normal 
         time = 8 hr
     }
-    withName PROCESS_NAME2 {
+    withName: PROCESS_NAME2 {
         cpus = 4
         memory = 20GB
         queue = normal 
@@ -160,7 +162,7 @@ process {
     }
 }
 ```
-3) When running the pipeline add to the `nextflow run` command: `-c path/to/resource_tweak.config` to use your config
+3) When running the pipeline, append the following to the `nextflow run` command: `-c path/to/resource_tweak.config` to use your config file.
 
 **What to watch out for :**
 
@@ -175,10 +177,11 @@ process {
 
 ## 5. Resource conflicts:
 
-When configuring resources, allocations must comply with ISG farm rules to avoid job submission errors. Always ensure you are up to date with the [ISG farm documentation](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101360547/Farm+documentation), as normal LSF job submission rules apply.
+When configuring resources for use on WSI "farm" HPC, allocations must comply with ISG farm rules to avoid job submission errors. Always ensure you are up to date with the [ISG farm documentation](https://ssg-confluence.internal.sanger.ac.uk/spaces/FARM/pages/101360547/Farm+documentation), as normal LSF job submission rules apply.
 
 ### Memory and queue conflicts:
 
+Jobs cannot request memory > 256 GB and submit to the normal, long, week and basement queues.
 Jobs cannot request memory < 196 GB and submit to the hugemem queue.
 Jobs cannot request memory < 745 GB and submit to the teramem queue.
 
@@ -188,7 +191,7 @@ If a parameter is not specified in `resource_tweak.config` for a process, the va
 
 ### Process script conflicts: 
 
-Some scripts within processes may include resource arguments that conflict with your specified parameters. For example, in the `Jellyfish Generator` pipeline, the process `JELLY_GEN` has `memory` hard-coded to `50 GB` and `CPUs` set to `8`:
+Some scripts within processes may include resource arguments that conflict with your specified parameters. This may cause task failures due to excess resource use, or suboptimal runtime efficiency. For example, in the `Jellyfish Generator` pipeline, the `jellyfish` command in the process `JELLY_GEN` has its max memory use hard-coded to `50 GB` and thread count set to `8`:
 
 ```bash
 jellyfish count /dev/fd/0 -m 50 -s 100M -o ${db_name} -t 8 -C
@@ -197,22 +200,24 @@ To override this behavior, you would need to clone the pipeline and manually edi
 
 ## 6. Examples of overriding resources: 
 
-The below section will show examples of how to overwrite the resource parameters and retry straties. 
+The below section will show examples of how to override the resource parameters and retry strategies. 
 
 All examples bellow will follow the ASSEMBLY process from generate mags.
 
-**Process:**
+**Process, as defined in the `*.nf` module file:**
 ```bash
 
 process ASSEMBLY {
     label 'cpu_8'
     label 'mem_32'
     label 'time_queue_from_normal'
+    
+    [...]
 }
 ```
-**Example 1:** Override all parameters
+### **Example 1:** Override all resource parameters
 
-Using resource_tweak.config to override all resources at the process level:
+Using `resource_tweak.config` to override all resources for a specific process:
 ```bash
 process {
     withName: 'ASSEMBLY' {
@@ -226,9 +231,9 @@ process {
 **Result:** `ASSEMBLY` will run with `4 CPUs`, `50 GB memory`, on the `long queue`, for up to `48 hours`.`
 
 
-**Example 2:** Override only some parameters
+### **Example 2:** Override only some parameters
 
-Using resource_tweak.config to some resources at the process level:
+Using `resource_tweak.config` to override some resources for a specific process:
 ```bash
 process {
     withName: 'ASSEMBLY' {
@@ -238,7 +243,7 @@ process {
     }
 }
 ```
-**Result:** CPUs remain from the process label (`cpu_8` → `8 CPUs`).`memory`, `queue`, and `time` are overridden.
+**Result:** `cpu` task parameter value remain as set from the process label (`cpu_8` → 8 CPUs).`memory`, `queue`, and `time` task parameter values are overridden.
 
 **Example 3:** Partial override with label fallback
 
@@ -252,7 +257,7 @@ process {
 ```
 **Result:** Even though `queue = long` has been supplied, because `time ` parameter has not been specified, the default label `'time_queue_from_normal'` from the `nextflow-commons.config`will be applied. This label overrides the queue setting, and the job will be submitted to the normal queue. Refer to *Section 8 "Understanding nextflow-commons labels"*, for details.
 
-**Example 4:** Memory resource escalation
+### **Example 4:** Changing memory resource escalation strategy
 
 ```bash
 process {
@@ -265,12 +270,12 @@ process {
 }
 ```
 Ensure to add the folowing functions copied from the `nextflow-commons.config` to the `resource_tweak config`: 
-1) `def check_max`
-2) `def escalate_exp`
+1) `def check_max { ... }`
+2) `def escalate_exp { ... }`
 
-**Result:** The memory resource will start at `64 GB` on the first attempt.
-On each retry (default 2 retries), the memory will double (`64` → `128` → `256 GB`, etc.) depending on the multiplier (in this case 2) .
-Check_max ensures that the escalated memory does not exceed farm/system limits.
+**Result:** The memory resource requested for the task job will start at 64 GB on the first attempt.
+On each retry (default 2 retries), the memory will then double (64 → 128 → 256 GB, etc.) depending on the multiplier (in this case 2) .
+The `check_max` function ensures that the escalated memory does not exceed farm/system limits.
 
 ## 7. Recommended resource combinations:
 
@@ -287,7 +292,7 @@ For detailed memory limits and runtime restrictions by queue, use:
 bqueues -l queue_name
 ```
 
-### Recommended resource combinations:
+### Recommended resource combinations on WSI "farm" HPC:
 
 Note: The memory recommendations for each job are based on current ISG documentation but have not received official ISG approval.
 
@@ -304,52 +309,49 @@ Note: The memory recommendations for each job are based on current ISG documenta
 
 ## 8. Understanding nextflow-commons labels: 
 
-Labels in Nextflow provide a central mechanism to define and manage resources for processes. To check what a label resolves to, refer to the [nextflow-commons.config](https://github.com/sanger-pathogens/nextflow-commons/blob/master/configs/nextflow.config). 
+Labels in Nextflow provide a central mechanism to define and manage resources for processes. To check what a label resolves to, refer to the [nextflow-commons.config](nextflow.config). 
 
 ### Examples of label resolution
 
-label `'cpu_8'`: 
+#### label `'cpu_8'`: 
 
 ```bash
     withLabel:cpu_8 {
         cpus   = { check_max( 8, 'cpus' ) }
     }
 ```
-This resolves to 8 cpus.
+- This resolves to 8 cpus.
 
-label `'mem_32'`:
+#### label `'mem_32'`:
 
 ```bash
     withLabel:mem_32 {
         memory = { check_max( escalate_exp( 32.GB, task, 2 ), 'memory' ) }
     }
 ```
-Resolves to `32 GB memory`.
-Enables retries, escalating exponentially: `32 GB` → `64 GB` → `128 GB`.
+- Resolves to `32 GB memory`.
+- Enables retries, escalating exponentially: `32 GB` → `64 GB` → `128 GB`.
 
-label `'time_30m'`:
+#### label `'time_30m'`:
 
 ```bash
     withLabel:time_30m {
         time   = { check_max( escalate_linear( 30.m, task ), 'time' ) }
     }
 ```
-Resolves to `30 minutes`.
-Enables retries with linear escalation: `30 m` → `60 m` → `90 m`, etc.
+- Resolves to `30 minutes`.
+- Enables retries with linear escalation: `30 m` → `60 m` → `90 m`, etc.
 
-label `'time_queue_from_normal'`:
+#### label `'time_queue_from_normal'`:
 
 ```bash
     withLabel:time_queue_from_normal {
         time = { check_max( escalate_queue_time( 'normal', task ), 'time' ) }
     }
 ```
-Resolves to `12 hours` initially.
-If the task exceeds the maximum runtime, the time and queue are updated during retries:
-* `12 h` → `normal queue`
-* `48 h` → `long queue`
-* `7 d` → `week queue`
-* `30 d` → `basement queue`
+- Resolves to `12 hours` maximum task job runtime initially.
+- If the task exceeds the maximum runtime, the `time` and `queue` task parameter values are updated during retries:
+`12.h` time and `normal` queue → `48.h` time and `long` queue → `7 d` time and `week` queue → `30 d` and `basement` queue
 
 Note: Even if you manually supply a queue, this label can override it during escalation so be careful.
 
